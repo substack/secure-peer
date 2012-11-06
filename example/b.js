@@ -1,0 +1,16 @@
+var secure = require('secure-peer');
+var peer = secure(require('./b.json'));
+
+var net = require('net');
+var rawStream = net.connect(5000);
+
+var sec = peer(function (stream) {
+    stream.pipe(process.stdout);
+    stream.write('beep boop\n');
+});
+sec.pipe(rawStream).pipe(sec);
+
+sec.on('pubkey', function (pubkey) {
+    // you can asynchronously verify that the key matches the known value here
+    sec.accept();
+});
