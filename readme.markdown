@@ -42,7 +42,7 @@ var sec = peer(function (stream) {
 });
 sec.pipe(rawStream).pipe(sec);
 
-sec.on('pubkey', function (pubkey) {
+sec.on('header', function (header) {
     // you can asynchronously verify that the key matches the known value here
     sec.accept();
 });
@@ -76,7 +76,7 @@ Create a new duplex stream `sec`
 ## sec.accept()
 
 Accept the connection. This function must be called for every listener on the
-`'pubkey'` event for the connection to succeed.
+`'header'` event for the connection to succeed.
 
 ## sec.reject()
 
@@ -88,9 +88,10 @@ Reject the connection. Rejecting a connection overrides `sec.accept()`.
 
 Emitted when the secure connection has been established successfully.
 
-## sec.on('pubkey', function (pubkey) {})
+## sec.on('header', function (header) {})
 
-Emitted when the remote side provides its public key.
+Emitted when the remote side provides header data including its public key which
+will be available as `header.public`.
 
 # install
 
