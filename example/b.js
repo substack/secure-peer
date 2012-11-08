@@ -1,4 +1,4 @@
-var secure = require('secure-peer');
+var secure = require('../');
 var peer = secure(require('./b.json'));
 
 var net = require('net');

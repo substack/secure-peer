@@ -1,6 +1,6 @@
 # secure-peer
 
-Create encrypted peer-to-peer streams using public key cryptography.
+Create encrypted peer-to-peer streams using public key cryptography and signing.
 
 No certificates, no authorities. Each side of the connection has the same kind
 of keys so it doesn't matter which side initiates the connection.
@@ -18,11 +18,14 @@ $ rsa-json > b.json
 ``` js
 var secure = require('secure-peer');
 var peer = secure(require('./a.json'));
+var through = require('through');
 
 var net = require('net');
 var server = net.createServer(function (rawStream) {
     var sec = peer(function (stream) {
-        stream.pipe(stream); // simple echo server
+        stream.pipe(through(function (buf) {
+            this.emit('data', String(buf).toUpperCase());
+        })).pipe(stream);
     });
     sec.pipe(rawStream).pipe(sec);
 });
@@ -38,12 +41,12 @@ var rawStream = net.connect(5000);
 
 var sec = peer(function (stream) {
     stream.pipe(process.stdout);
-    stream.write('beep boop\n');
+    stream.end('beep boop\n');
 });
 sec.pipe(rawStream).pipe(sec);
 
 sec.on('identify', function (id) {
-    // you can asynchronously verify that the id.key is known here
+    // you can asynchronously verify that the key matches the known value here
     id.accept();
 });
 ```
