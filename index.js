@@ -10,9 +10,22 @@ var zeros = (function () {
 })();
 
 function pad (msg) {
-    var b = zeros.slice(0, zeros.length);
-    (Buffer.isBuffer(msg) ? msg : Buffer(msg)).copy(b, 0);
-    return b;
+    var isBuf = Buffer.isBuffer(msg);
+    var bufs = [];
+    
+    for (var i = 0; i < msg.length; i += 256) {
+        var b = zeros.slice(0, zeros.length);
+        var n = Math.min(msg.length - i, 256);
+        if (isBuf) {
+            msg.copy(b, 0, 0, n);
+        }
+        else {
+            b.write(msg.slice(i), 0, n);
+        }
+        bufs.push(b);
+    }
+    
+    return bufs;
 }
 
 module.exports = function (keys) {
@@ -48,8 +61,10 @@ module.exports = function (keys) {
             stream.id = ack;
             
             function write (buf) {
-                var s = encrypt.update(String(pad(buf)));
-                sec.emit('data', Buffer(s));
+                pad(buf).forEach(function (chunk) {
+                    var s = encrypt.update(String(chunk));
+                    sec.emit('data', Buffer(s));
+                });
             }
             
             function end () {
