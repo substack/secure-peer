@@ -53,10 +53,6 @@ function securePeer (dh, keys, cb) {
         sec.emit('header', header);
     }));
     
-    sec.on('_resume', function () {
-        lines.forEach(unframer);
-    });
-    
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;
         var k = dh.computeSecret(pub, 'base64', 'base64');
@@ -87,7 +83,8 @@ function securePeer (dh, keys, cb) {
         sec.emit('connection', stream);
         decrypt = crypto.createDecipher('aes-256-cbc', k);
         
-        sec.emit('_resume');
+        lines.forEach(unframer);
+        lines = undefined;
     });
     
     sec.once('header', function (meta) {
