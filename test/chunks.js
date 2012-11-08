@@ -11,7 +11,7 @@ var peer = {
 };
 var through = require('through');
 
-test('accept a connection', function (t) {
+test('multiple chunks on the same tick', function (t) {
     t.plan(3);
     
     var a = peer.a(function (stream) {
