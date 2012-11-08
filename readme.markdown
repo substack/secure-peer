@@ -5,6 +5,8 @@ Create encrypted peer-to-peer streams using public key cryptography and signing.
 No certificates, no authorities. Each side of the connection has the same kind
 of keys so it doesn't matter which side initiates the connection.
 
+[![build status](https://secure.travis-ci.org/substack/secure-peer.png)](http://travis-ci.org/substack/secure-peer)
+
 # example
 
 First generate some public/private keypairs with
