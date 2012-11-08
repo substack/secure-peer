@@ -3,29 +3,23 @@ var header = require('./lib/header');
 var through = require('through');
 var createAck = require('./lib/ack');
 
-var zeros = (function () {
-    var b = Buffer(256);
-    for (var i = 0; i < b.length; i++) b[i] = 0;
+function zeros (n) {
+    var b = Buffer(n);
+    for (var i = 0; i < n; i++) b[i] = 0;
     return b;
-})();
+}
 
 function pad (msg) {
-    var isBuf = Buffer.isBuffer(msg);
-    var bufs = [];
+    var n = Math.ceil(msg.length / 256) * 256;
+    var b = zeros(n);
     
-    for (var i = 0; i < msg.length; i += 256) {
-        var b = zeros.slice(0, zeros.length);
-        var n = Math.min(msg.length - i, 256);
-        if (isBuf) {
-            msg.copy(b, 0, 0, n);
-        }
-        else {
-            b.write(msg.slice(i), 0, n);
-        }
-        bufs.push(b);
+    if (Buffer.isBuffer(msg)) {
+        msg.copy(b, 0);
     }
-    
-    return bufs;
+    else {
+        b.write(msg, 0);
+    }
+    return b;
 }
 
 module.exports = function (keys) {
@@ -61,10 +55,8 @@ module.exports = function (keys) {
             stream.id = ack;
             
             function write (buf) {
-                pad(buf).forEach(function (chunk) {
-                    var s = encrypt.update(String(chunk));
-                    sec.emit('data', Buffer(s));
-                });
+                var s = encrypt.update(String(pad(buf)));
+                sec.emit('data', Buffer(s));
             }
             
             function end () {
