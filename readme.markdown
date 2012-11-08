@@ -42,9 +42,9 @@ var sec = peer(function (stream) {
 });
 sec.pipe(rawStream).pipe(sec);
 
-sec.on('header', function (header) {
-    // you can asynchronously verify that the key matches the known value here
-    sec.accept();
+sec.on('identify', function (id) {
+    // you can asynchronously verify that the id.key is known here
+    id.accept();
 });
 ```
 
@@ -73,25 +73,37 @@ You can generate keypairs with [rsa-json](http://github.com/substack/rsa-json).
 
 Create a new duplex stream `sec`
 
-## sec.accept()
-
-Accept the connection. This function must be called for every listener on the
-`'header'` event for the connection to succeed.
-
-## sec.reject()
-
-Reject the connection. Rejecting a connection overrides `sec.accept()`.
-
 # events
 
-## sec.on('connect', function (stream) {})
+## sec.on('connection', function (stream) {})
 
 Emitted when the secure connection has been established successfully.
 
+`stream.id` is the identify object from the `'identify'` event.
+
+## sec.on('identify', function (id) {})
+
+Emitted when the connection identifies with its public key, `id.key`.
+
+Each listener *must* call either `id.accept()` or `id.reject()`.
+
+The connection won't be accepted until all listeners call `id.accept()`. If any
+listener calls `id.reject()`, the connection will be aborted.
+
+### id.accept()
+
+Accept the connection. This function must be called for every listener on the
+`'identify'` event for the connection to succeed.
+
+### id.reject()
+
+Reject the connection. The connection will not succeed even if `id.accept()` was
+called in another listener.
+
 ## sec.on('header', function (header) {})
 
-Emitted when the remote side provides header data including its public key which
-will be available as `header.public`.
+Emitted when the remote side provides a signed header.payload json string signed
+with its private key in header.hash.
 
 # install
 

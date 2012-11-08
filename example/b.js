@@ -10,7 +10,7 @@ var sec = peer(function (stream) {
 });
 sec.pipe(rawStream).pipe(sec);
 
-sec.on('pubkey', function (pubkey) {
+sec.on('identify', function (id) {
     // you can asynchronously verify that the key matches the known value here
-    sec.accept();
+    id.accept();
 });
