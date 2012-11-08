@@ -1,11 +1,7 @@
 var crypto = require('crypto');
-var header = require('header-stream');
+var header = require('./lib/header');
 var through = require('through');
-
-var groups = [
-    'modp1', 'modp2', 'modp5', // rfc 2412
-    'modp14', 'modp15', 'modp16', 'modp17', 'modp18' // rfc 3526
-];
+var createAck = require('./lib/ack');
 
 module.exports = function (keys) {
     function hash (payload) {
@@ -14,65 +10,96 @@ module.exports = function (keys) {
         return signer.sign(keys.private, 'base64');
     }
     
+    var group = 'modp5';
+    var dh = crypto.getDiffieHellman(group);
+    dh.generateKeys();
+    
     return function (cb) {
-        var sec = header(through());
-        var group = groups[Math.floor(Math.random() * groups.length)];
-        var dh = crypto.getDiffieHellman(group);
-        dh.generateKeys();
+        var buffers = [];
+        var stream, encrypt, decrypt;
         
-        var payload = JSON.stringify({
-            rsa : { public : keys.public },
-            dh : {
-                group : group,
-                public : dh.getPublicKey('base64')
+        var sec = header(function (buf) {
+            if (decrypt) {
+                stream.emit('data', decrypt.update(buf));
             }
+            else buffers.push(buf)
         });
-        sec.setHeader({ hash : hash(payload), payload : payload });
         
-        var counts = { accept : 0, reject : 0 , listen : 0 };
-        
-        sec.accept = function () {
-            counts.accept ++;
-            if (counts.reject > 0 || counts.listen !== counts.accept) return;
+        sec.on('accept', function (ack) {
+            var pub = ack.payload.dh.public;
+            var k = dh.computeSecret(pub, 'base64', 'base64');
+console.log('k=' + k);
+            encrypt = crypto.createCipher('aes192', k);
+            decrypt = crypto.createDecipher('aes192', k);
             
-            console.dir(sec.payload);
-            console.dir(sec.secret);
+            stream = through(write, end);
+            stream.id = ack;
             
-            //sec.emit('connect', stream);
-        };
-        
-        sec.reject = function () {
-            counts.reject ++;
-            sec.emit('close');
-        };
+            function write (buf) {
+                sec.emit('data', encrypt.update(buf));
+            }
+            
+            function end () {
+                sec.emit('data', ecrypt.final());
+                sec.emit('end');
+                sec.emit('close');
+            }
+            
+            sec.emit('connection', stream);
+        });
         
         sec.once('header', function (meta) {
             var payload = JSON.parse(meta.payload);
-            var v = crypto.createVerify('RSA-SHA256')
-                .update(meta.payload)
-                .verify(payload.rsa.public, meta.hash, 'base64')
-            ;
+            
+            function verify (msg, hash) {
+                return crypto.createVerify('RSA-SHA256')
+                    .update(msg)
+                    .verify(payload.key.public, hash, 'base64')
+                ;
+            }
+            
+            var v = verify(meta.payload, meta.hash);
             if (!v) return sec.reject();
             
-            var k = dh.computeSecret(payload.dh.public, 'base64', 'base64');
+            var ack = createAck(sec.listeners('identify').length);
+            ack.key = payload.key;
+            ack.outgoing = outgoing;
+            ack.payload = payload;
             
-            sec.secret = k;
-            sec.payload = payload;
+            ack.on('accept', function () {
+                sec.emit('accept', ack);
+            });
             
-            counts.listen = sec.listeners('header').length;
-            if (counts.listen === 0 && counts.reject === 0) {
-                counts.listen ++;
-                sec.accept();
-            }
+            ack.on('reject', function () {
+                sec.emit('close');
+            });
+            
+            sec.emit('identify', ack);
         });
         
         sec.on('pipe', function () {
-            process.nextTick(function () {
-                sec.writeHead();
-            });
+            process.nextTick(sendOutgoing);
         });
         
-        if (typeof cb === 'function') sec.on('connect', cb);
+        var outgoing;
+        function sendOutgoing () {
+            outgoing = JSON.stringify({
+                key : {
+                    type : 'rsa',
+                    public : keys.public,
+                },
+                dh : {
+                    group : group,
+                    public : dh.getPublicKey('base64')
+                }
+            });
+            sec.emit('data', JSON.stringify({
+                hash : hash(outgoing),
+                payload : outgoing
+            }) + '\n');
+        }
+        
+        if (typeof cb === 'function') sec.on('connection', cb);
         return sec;
     };
 };
