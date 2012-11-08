@@ -19,6 +19,14 @@ function securePeer (dh, keys, cb) {
     
     function unframer (buf) {
         var uf = unframe(stream.id.key.public, buf);
+        if (uf === 'end') {
+            stream.emit('end');
+            sec.emit('end');
+            
+            stream.emit('close');
+            sec.emit('close');
+            return;
+        }
         if (!uf) {
             stream.destroy();
             sec.destroy();
@@ -57,6 +65,15 @@ function securePeer (dh, keys, cb) {
         
         stream = through(write, end);
         stream.id = ack;
+        
+        stream.once('end', function () {
+            stream._ended = true;
+        });
+        
+        sec.once('end', function () {
+            if (stream._ended) return;
+            stream.emit('end');
+        });
         
         function write (buf) {
             var s = encrypt.update(String(pad(buf)));
@@ -157,7 +174,9 @@ function unframe (key, buf) {
     try {
         var x = JSON.parse(buf);
     } catch (e) { return undefined }
-    if (!Array.isArray(x) || x.length !== 3) return undefined;
+    if (!Array.isArray(x)) return undefined;
+    if (x.length === 0) return 'end';
+    if (x.length !== 3) return undefined;
     
     var payload = JSON.stringify(x.slice(0,2));
     var v = verify(key, payload, x[2]);

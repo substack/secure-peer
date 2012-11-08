@@ -15,7 +15,7 @@ test('accept a connection', function (t) {
             this.emit('data', String(buf).toUpperCase());
         })).pipe(stream);
     });
-
+    
     var b = peer.b(function (stream) {
         var data = '';
         stream.on('data', function (buf) { data += buf });
@@ -24,10 +24,10 @@ test('accept a connection', function (t) {
         });
         stream.end('beep boop');
     });
-
+    
     b.on('identify', function (id) {
         id.accept();
     });
-
+    
     a.pipe(b).pipe(a);
 });
