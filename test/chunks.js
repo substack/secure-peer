@@ -28,7 +28,10 @@ test('multiple chunks on the same tick', function (t) {
         stream.on('end', function () {
             t.equal(data, 'BEEP BOOP');
         });
-        stream.end('beep boop');
+        
+        stream.write('beep');
+        stream.write(' ');
+        stream.write('boop');
     });
     
     a.on('identify', function (id) {

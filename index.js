@@ -6,6 +6,7 @@ var createAck = require('./lib/ack');
 var frame = require('./lib/frame');
 var hash =require('./lib/hash');
 var verify =require('./lib/verify');
+var pad = require('./lib/pad');
 
 module.exports = function (keys) {
     var group = 'modp5';
@@ -65,10 +66,6 @@ function securePeer (dh, keys, cb) {
         
         stream = through(write, end);
         stream.id = ack;
-        
-        stream.once('end', function () {
-            stream._ended = true;
-        });
         
         sec.once('end', end);
         
@@ -138,16 +135,3 @@ function securePeer (dh, keys, cb) {
     if (typeof cb === 'function') sec.on('connection', cb);
     return sec;
 };
-
-function pad (msg) {
-    var n = Math.ceil(msg.length / 256) * 256;
-    var b = Buffer(crypto.randomBytes(n));
-    
-    if (Buffer.isBuffer(msg)) {
-        msg.copy(b, 0);
-    }
-    else {
-        b.write(msg, 0);
-    }
-    return b;
-}
