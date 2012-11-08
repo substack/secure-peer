@@ -1,0 +1,38 @@
+{
+    "name" : "secure-peer",
+    "version" : "0.0.0",
+    "description" : "peer-to-peer encrypted streams using public key cryptography and signing",
+    "main" : "index.js",
+    "directories" : {
+        "example" : "example",
+        "test" : "test"
+    },
+    "dependencies" : {
+        "inherits" : "~1.0.0",
+        "through" : "~1.1.1",
+        "event-stream" : "~3.0.7"
+    },
+    "devDependencies" : {
+        "tap" : "~0.3.0"
+    },
+    "scripts" : {
+        "test" : "tap test/*.js"
+    },
+    "repository" : {
+        "type" : "git",
+        "url" : "git://github.com/substack/secure-peer.git"
+    },
+    "homepage" : "https://github.com/substack/secure-peer",
+    "keywords" : [
+        "crypto",
+        "diffie-hellman",
+        "rsa",
+        "encryption"
+    ],
+    "author" : {
+        "name" : "James Halliday",
+        "email" : "mail@substack.net",
+        "url" : "http://substack.net"
+    },
+    "license" : "MIT"
+}
