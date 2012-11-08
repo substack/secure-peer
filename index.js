@@ -66,17 +66,17 @@ function securePeer (dh, keys, cb) {
             stream._ended = true;
         });
         
-        sec.once('end', function () {
-            if (stream._ended) return;
-            stream.emit('end');
-        });
+        sec.once('end', end);
         
         function write (buf) {
             var s = encrypt.update(String(pad(buf)));
             sec.emit('data', frame(keys.private, Buffer(s), buf.length));
         }
         
+        var sentEnd = false;
         function end () {
+            if (sentEnd) return;
+            sentEnd = true;
             sec.emit('data', '[]\n');
         }
         
