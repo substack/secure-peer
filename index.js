@@ -3,6 +3,18 @@ var header = require('./lib/header');
 var through = require('through');
 var createAck = require('./lib/ack');
 
+var zeros = (function () {
+    var b = Buffer(256);
+    for (var i = 0; i < b.length; i++) b[i] = 0;
+    return b;
+})();
+
+function pad (msg) {
+    var b = zeros.slice(0, zeros.length);
+    (Buffer.isBuffer(msg) ? msg : Buffer(msg)).copy(b, 0);
+    return b;
+}
+
 module.exports = function (keys) {
     function hash (payload) {
         var signer = crypto.createSign('RSA-SHA256');
@@ -36,7 +48,7 @@ module.exports = function (keys) {
             stream.id = ack;
             
             function write (buf) {
-                var s = encrypt.update(String(buf));
+                var s = encrypt.update(String(pad(buf)));
                 sec.emit('data', Buffer(s));
             }
             
