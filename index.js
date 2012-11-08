@@ -20,7 +20,8 @@ module.exports = function (keys) {
         
         var sec = header(function (buf) {
             if (decrypt) {
-                stream.emit('data', decrypt.update(buf));
+                var s = decrypt.update(String(buf));
+                stream.emit('data', Buffer(s));
             }
             else buffers.push(buf)
         });
@@ -30,13 +31,13 @@ module.exports = function (keys) {
             var k = dh.computeSecret(pub, 'base64', 'base64');
             
             encrypt = crypto.createCipher('aes-256-cbc', k);
-            decrypt = crypto.createDecipher('aes-256-cbc', k);
             
             stream = through(write, end);
             stream.id = ack;
             
             function write (buf) {
-                sec.emit('data', encrypt.update(buf));
+                var s = encrypt.update(String(buf));
+                sec.emit('data', Buffer(s));
             }
             
             function end () {
@@ -46,6 +47,9 @@ module.exports = function (keys) {
             }
             
             sec.emit('connection', stream);
+            
+            decrypt = crypto.createDecipher('aes-256-cbc', k);
+            
             buffers.forEach(function (buf) {
                 stream.emit('data', decrypt.update(buf));
             });
