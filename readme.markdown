@@ -76,7 +76,8 @@ You can generate keypairs with [rsa-json](http://github.com/substack/rsa-json).
 
 ## var sec = peer(cb)
 
-Create a new duplex stream `sec`.
+Create a new duplex stream `sec` that caries the encrypted contents. This stream
+is safe to stream over the wire, including untrusted networks.
 
 `cb` is a shorthand to listen on the `'connection'` event just like
 `net.createServer()`.
@@ -85,7 +86,8 @@ Create a new duplex stream `sec`.
 
 ## sec.on('connection', function (stream) {})
 
-Emitted when the secure connection has been established successfully.
+Emitted with the decrypted plaintext stream when the secure connection has been
+established successfully.
 
 `stream.id` is the identify object from the `'identify'` event.
 
