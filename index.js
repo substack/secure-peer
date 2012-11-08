@@ -29,6 +29,14 @@ module.exports = function (keys) {
         return signer.sign(keys.private, 'base64');
     }
     
+    function frame (buf) {
+        return buf;
+    }
+    
+    function unframe (buf) {
+        return buf;
+    }
+    
     var group = 'modp5';
     var dh = crypto.getDiffieHellman(group);
     dh.generateKeys();
@@ -39,7 +47,13 @@ module.exports = function (keys) {
         
         var sec = header(function (buf) {
             if (decrypt) {
-                var s = decrypt.update(String(buf));
+                var uf = unframe(buf);
+                if (!uf) {
+                    stream.destroy();
+                    this.destroy();
+                    return;
+                }
+                var s = decrypt.update(String(uf));
                 stream.emit('data', Buffer(s));
             }
             else buffers.push(buf)
@@ -56,7 +70,7 @@ module.exports = function (keys) {
             
             function write (buf) {
                 var s = encrypt.update(String(pad(buf)));
-                sec.emit('data', Buffer(s));
+                sec.emit('data', frame(Buffer(s)));
             }
             
             function end () {
@@ -70,7 +84,13 @@ module.exports = function (keys) {
             decrypt = crypto.createDecipher('aes-256-cbc', k);
             
             buffers.forEach(function (buf) {
-                stream.emit('data', decrypt.update(buf));
+                var uf = unframe(buf);
+                if (!uf) {
+                    stream.destroy();
+                    sec.destroy();
+                    return;
+                }
+                stream.emit('data', decrypt.update(uf));
             });
             buffers = undefined;
         });
