@@ -50,6 +50,7 @@ function securePeer (dh, keys, cb) {
         var k = dh.computeSecret(pub, 'base64', 'base64');
         
         encrypt = crypto.createCipher('aes-256-cbc', k);
+        decrypt = crypto.createDecipher('aes-256-cbc', k);
         
         stream = through(write, end);
         stream.id = ack;
@@ -60,12 +61,10 @@ function securePeer (dh, keys, cb) {
         }
         
         function end () {
-            //sec.emit('end');
-            //stream.emit('end');
+            sec.emit('data', '[]\n');
         }
         
         sec.emit('connection', stream);
-        decrypt = crypto.createDecipher('aes-256-cbc', k);
         
         buffers.forEach(unframer);
         buffers = undefined;
@@ -121,7 +120,7 @@ function securePeer (dh, keys, cb) {
 
 function pad (msg) {
     var n = Math.ceil(msg.length / 256) * 256;
-    var b = crypto.randomBytes(n);
+    var b = Buffer(crypto.randomBytes(n));
     
     if (Buffer.isBuffer(msg)) {
         msg.copy(b, 0);

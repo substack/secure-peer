@@ -15,6 +15,7 @@ test('accept a secure connection', function (t) {
     
     var a = peer.a(function (stream) {
         stream.pipe(through(function (buf) {
+console.dir(buf); 
             this.emit('data', String(buf).toUpperCase());
         }).pipe(stream));
     });
@@ -22,6 +23,7 @@ test('accept a secure connection', function (t) {
     var b = peer.b(function (stream) {
         var data = '';
         stream.on('data', function (buf) {
+console.dir(String(buf)); 
             data += buf;
         });
         stream.on('end', function () {
