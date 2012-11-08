@@ -18,17 +18,20 @@ function securePeer (dh, keys, cb) {
     var buffers = [];
     var stream, encrypt, decrypt;
     
-    var sec = header(function (buf) {
-        if (decrypt) {
-            var uf = unframe(stream.id.key, buf);
-            if (!uf) {
-                stream.destroy();
-                this.destroy();
-                return;
-            }
-            var s = decrypt.update(String(uf));
-            stream.emit('data', Buffer(s));
+    function unframer (buf) {
+        var uf = unframe(stream.id.key.public, buf);
+        if (!uf) {
+            stream.destroy();
+            sec.destroy();
+            return;
         }
+        var msg = Buffer(uf[0], 'base64');
+        var s = decrypt.update(String(msg));
+        stream.emit('data', Buffer(s).slice(0, uf[1]));
+    }
+    
+    var sec = header(function (buf) {
+        if (decrypt) unframer(buf)
         else buffers.push(buf)
     });
     
@@ -43,7 +46,7 @@ function securePeer (dh, keys, cb) {
         
         function write (buf) {
             var s = encrypt.update(String(pad(buf)));
-            sec.emit('data', frame(keys.private, Buffer(s)));
+            sec.emit('data', frame(keys.private, Buffer(s), buf.length));
         }
         
         function end () {
@@ -56,15 +59,7 @@ function securePeer (dh, keys, cb) {
         
         decrypt = crypto.createDecipher('aes-256-cbc', k);
         
-        buffers.forEach(function (buf) {
-            var uf = unframe(stream.id.key, buf);
-            if (!uf) {
-                stream.destroy();
-                sec.destroy();
-                return;
-            }
-            stream.emit('data', decrypt.update(uf));
-        });
+        buffers.forEach(unframer);
         buffers = undefined;
     });
     
@@ -148,13 +143,21 @@ function verify (key, msg, hash) {
     ;
 }
 
-function frame (key, buf) {
-    var h = hash(key, buf);
-    
-console.dir(h); 
-    return buf;
+function frame (key, msg, size) {
+    var s = msg.toString('base64');
+    var payload = JSON.stringify([ s, size ]);
+    return JSON.stringify([ s, size, hash(key, payload) ]) + '\n';
 }
 
 function unframe (key, buf) {
-    return buf;
+    try {
+        var x = JSON.parse(buf);
+    } catch (e) { return undefined }
+    if (!Array.isArray(x) || x.length !== 3) return undefined;
+    
+    var payload = JSON.stringify(x.slice(0,2));
+    var v = verify(key, payload, x[2]);
+    if (!v) return undefined;
+    
+    return x;
 }
