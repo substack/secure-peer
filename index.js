@@ -28,9 +28,9 @@ module.exports = function (keys) {
         sec.on('accept', function (ack) {
             var pub = ack.payload.dh.public;
             var k = dh.computeSecret(pub, 'base64', 'base64');
-console.log('k=' + k);
-            encrypt = crypto.createCipher('aes192', k);
-            decrypt = crypto.createDecipher('aes192', k);
+            
+            encrypt = crypto.createCipher('aes-256-cbc', k);
+            decrypt = crypto.createDecipher('aes-256-cbc', k);
             
             stream = through(write, end);
             stream.id = ack;
@@ -46,6 +46,10 @@ console.log('k=' + k);
             }
             
             sec.emit('connection', stream);
+            buffers.forEach(function (buf) {
+                stream.emit('data', decrypt.update(buf));
+            });
+            buffers = undefined;
         });
         
         sec.once('header', function (meta) {

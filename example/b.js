@@ -6,7 +6,9 @@ var rawStream = net.connect(5000);
 
 var sec = peer(function (stream) {
     stream.pipe(process.stdout);
-    stream.write('beep boop\n');
+    var b = Buffer(256);
+    Buffer('beep boop\n').copy(b, 0);
+    stream.write(b);
 });
 sec.pipe(rawStream).pipe(sec);
 
