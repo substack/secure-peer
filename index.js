@@ -20,15 +20,15 @@ module.exports = function (keys) {
 };
 
 function securePeer (dh, keys, cb) {
-    var stream, encrypt, decrypt;
+    var stream, secret;
     
     function unframer (buf) {
         var uf = frame.unpack(stream.id.key.public, buf);
         if (uf === 'end') {
-            stream.emit('end');
+            if (stream) stream.emit('end');
             sec.emit('end');
             
-            stream.emit('close');
+            if (stream) stream.emit('close');
             sec.emit('close');
             return;
         }
@@ -38,16 +38,27 @@ function securePeer (dh, keys, cb) {
             return;
         }
         var msg = Buffer(uf[0], 'base64');
-        var s = decrypt.update(String(msg));
+        
+        var decrypt = crypto.createDecipher('aes-256-cbc', secret);
+        var s = decrypt.update(String(msg)) + decrypt.final();
         stream.emit('data', Buffer(s).slice(0, uf[1]));
     }
     
     var firstLine = true;
     var lines = [];
     
+    var end = (function () {
+        var sentEnd = false;
+        return function end () {
+            if (sentEnd) return;
+            sentEnd = true;
+            sec.emit('data', '[]\n');
+        }
+    })();
+    
     var sec = es.connect(es.split(), through(function (line) {
-        if (!firstLine && decrypt) return unframer(line);
-        else if (!firstLine) return lines.push(line);
+        if (!firstLine && lines) return lines.push(line);
+        else if (!firstLine) return unframer(line);
         
         firstLine = false;
         
@@ -56,36 +67,26 @@ function securePeer (dh, keys, cb) {
         } catch (e) { return sec.destroy() }
         
         sec.emit('header', header);
-    }));
+    }, end));
     
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;
-        var k = dh.computeSecret(pub, 'base64', 'base64');
-        
-        encrypt = crypto.createCipher('aes-256-cbc', k);
+        secret = dh.computeSecret(pub, 'base64', 'base64');
         
         stream = through(write, end);
         stream.id = ack;
         
-        sec.once('end', end);
-        
         function write (buf) {
-            var s = encrypt.update(String(pad(buf)));
+            var encrypt = crypto.createCipher('aes-256-cbc', secret);
+            var s = encrypt.update(String(pad(buf))) + encrypt.final();
             sec.emit('data', frame.pack(keys.private, Buffer(s), buf.length));
         }
         
-        var sentEnd = false;
-        function end () {
-            if (sentEnd) return;
-            sentEnd = true;
-            sec.emit('data', '[]\n');
-        }
-        
         sec.emit('connection', stream);
-        decrypt = crypto.createDecipher('aes-256-cbc', k);
         
-        lines.forEach(unframer);
+        var lines_ = lines;
         lines = undefined;
+        lines_.forEach(unframer);
     });
     
     sec.once('header', function (meta) {

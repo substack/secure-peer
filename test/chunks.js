@@ -31,7 +31,7 @@ test('multiple chunks on the same tick', function (t) {
         
         stream.write('beep');
         stream.write(' ');
-        stream.write('boop');
+        stream.end('boop');
     });
     
     a.on('identify', function (id) {
