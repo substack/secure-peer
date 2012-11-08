@@ -1,7 +1,11 @@
 var crypto = require('crypto');
 var through = require('through');
-var createAck = require('./lib/ack');
 var es = require('event-stream');
+
+var createAck = require('./lib/ack');
+var frame = require('./lib/frame');
+var hash =require('./lib/hash');
+var verify =require('./lib/verify');
 
 module.exports = function (keys) {
     var group = 'modp5';
@@ -18,7 +22,7 @@ function securePeer (dh, keys, cb) {
     var stream, encrypt, decrypt;
     
     function unframer (buf) {
-        var uf = unframe(stream.id.key.public, buf);
+        var uf = frame.unpack(stream.id.key.public, buf);
         if (uf === 'end') {
             stream.emit('end');
             sec.emit('end');
@@ -70,7 +74,7 @@ function securePeer (dh, keys, cb) {
         
         function write (buf) {
             var s = encrypt.update(String(pad(buf)));
-            sec.emit('data', frame(keys.private, Buffer(s), buf.length));
+            sec.emit('data', frame.pack(keys.private, Buffer(s), buf.length));
         }
         
         var sentEnd = false;
@@ -146,38 +150,4 @@ function pad (msg) {
         b.write(msg, 0);
     }
     return b;
-}
-
-function hash (key, payload) {
-    var signer = crypto.createSign('RSA-SHA256');
-    signer.update(payload);
-    return signer.sign(key, 'base64');
-}
-
-function verify (key, msg, hash) {
-    return crypto.createVerify('RSA-SHA256')
-        .update(msg)
-        .verify(key, hash, 'base64')
-    ;
-}
-
-function frame (key, msg, size) {
-    var s = msg.toString('base64');
-    var payload = JSON.stringify([ s, size ]);
-    return JSON.stringify([ s, size, hash(key, payload) ]) + '\n';
-}
-
-function unframe (key, buf) {
-    try {
-        var x = JSON.parse(buf);
-    } catch (e) { return undefined }
-    if (!Array.isArray(x)) return undefined;
-    if (x.length === 0) return 'end';
-    if (x.length !== 3) return undefined;
-    
-    var payload = JSON.stringify(x.slice(0,2));
-    var v = verify(key, payload, x[2]);
-    if (!v) return undefined;
-    
-    return x;
 }
