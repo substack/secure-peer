@@ -11,11 +11,10 @@ module.exports = function (keys) {
     
     return function (cb) {
         return securePeer(dh, keys, cb);
-    }
+    };
 };
 
 function securePeer (dh, keys, cb) {
-    var buffers = [];
     var stream, encrypt, decrypt;
     
     function unframer (buf) {
@@ -31,26 +30,30 @@ function securePeer (dh, keys, cb) {
     }
     
     var firstLine = true;
+    var lines = [];
+    
     var sec = es.connect(es.split(), through(function (line) {
-        if (firstLine) {
-            firstLine = false;
-            
-            try {
-                var header = JSON.parse(line);
-            } catch (e) { return sec.destroy() }
-            
-            sec.emit('header', header);
-        }
-        else if (decrypt) unframer(line)
-        else buffers.push(line)
+        if (!firstLine && decrypt) return unframer(line);
+        else if (!firstLine) return lines.push(line);
+        
+        firstLine = false;
+        
+        try {
+            var header = JSON.parse(line);
+        } catch (e) { return sec.destroy() }
+        
+        sec.emit('header', header);
     }));
+    
+    sec.on('_resume', function () {
+        lines.forEach(unframer);
+    });
     
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;
         var k = dh.computeSecret(pub, 'base64', 'base64');
         
         encrypt = crypto.createCipher('aes-256-cbc', k);
-        decrypt = crypto.createDecipher('aes-256-cbc', k);
         
         stream = through(write, end);
         stream.id = ack;
@@ -65,9 +68,9 @@ function securePeer (dh, keys, cb) {
         }
         
         sec.emit('connection', stream);
+        decrypt = crypto.createDecipher('aes-256-cbc', k);
         
-        buffers.forEach(unframer);
-        buffers = undefined;
+        sec.emit('_resume');
     });
     
     sec.once('header', function (meta) {
