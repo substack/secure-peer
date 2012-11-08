@@ -1,7 +1,7 @@
 var crypto = require('crypto');
-var header = require('./lib/header');
 var through = require('through');
 var createAck = require('./lib/ack');
+var es = require('event-stream');
 
 module.exports = function (keys) {
     var group = 'modp5';
@@ -30,10 +30,19 @@ function securePeer (dh, keys, cb) {
         stream.emit('data', Buffer(s).slice(0, uf[1]));
     }
     
-    var sec = header(function (buf) {
-        if (decrypt) unframer(buf)
-        else buffers.push(buf)
-    });
+    var firstLine = true;
+    var sec = es.connect(es.split(), through(function (line) {
+        if (firstLine) {
+            try {
+                var header = JSON.parse(line);
+            } catch (e) { return sec.destroy() }
+            
+            sec.emit('header', header);
+            firstLine = false;
+        }
+        else if (decrypt) unframer(line)
+        else buffers.push(line)
+    }));
     
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;
