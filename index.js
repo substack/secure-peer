@@ -3,40 +3,7 @@ var header = require('./lib/header');
 var through = require('through');
 var createAck = require('./lib/ack');
 
-function zeros (n) {
-    var b = Buffer(n);
-    for (var i = 0; i < n; i++) b[i] = 0;
-    return b;
-}
-
-function pad (msg) {
-    var n = Math.ceil(msg.length / 256) * 256;
-    var b = zeros(n);
-    
-    if (Buffer.isBuffer(msg)) {
-        msg.copy(b, 0);
-    }
-    else {
-        b.write(msg, 0);
-    }
-    return b;
-}
-
 module.exports = function (keys) {
-    function hash (payload) {
-        var signer = crypto.createSign('RSA-SHA256');
-        signer.update(payload);
-        return signer.sign(keys.private, 'base64');
-    }
-    
-    function frame (buf) {
-        return buf;
-    }
-    
-    function unframe (buf) {
-        return buf;
-    }
-    
     var group = 'modp5';
     var dh = crypto.getDiffieHellman(group);
     dh.generateKeys();
@@ -47,7 +14,7 @@ module.exports = function (keys) {
         
         var sec = header(function (buf) {
             if (decrypt) {
-                var uf = unframe(buf);
+                var uf = unframe(stream.id.key, buf);
                 if (!uf) {
                     stream.destroy();
                     this.destroy();
@@ -70,7 +37,7 @@ module.exports = function (keys) {
             
             function write (buf) {
                 var s = encrypt.update(String(pad(buf)));
-                sec.emit('data', frame(Buffer(s)));
+                sec.emit('data', frame(keys.private, Buffer(s)));
             }
             
             function end () {
@@ -84,7 +51,7 @@ module.exports = function (keys) {
             decrypt = crypto.createDecipher('aes-256-cbc', k);
             
             buffers.forEach(function (buf) {
-                var uf = unframe(buf);
+                var uf = unframe(stream.id.key, buf);
                 if (!uf) {
                     stream.destroy();
                     sec.destroy();
@@ -98,14 +65,7 @@ module.exports = function (keys) {
         sec.once('header', function (meta) {
             var payload = JSON.parse(meta.payload);
             
-            function verify (msg, hash) {
-                return crypto.createVerify('RSA-SHA256')
-                    .update(msg)
-                    .verify(payload.key.public, hash, 'base64')
-                ;
-            }
-            
-            var v = verify(meta.payload, meta.hash);
+            var v = verify(payload.key.public, meta.payload, meta.hash);
             if (!v) return sec.reject();
             
             var ack = createAck(sec.listeners('identify').length);
@@ -141,7 +101,7 @@ module.exports = function (keys) {
                 }
             });
             sec.emit('data', JSON.stringify({
-                hash : hash(outgoing),
+                hash : hash(keys.private, outgoing),
                 payload : outgoing
             }) + '\n');
         }
@@ -150,3 +110,46 @@ module.exports = function (keys) {
         return sec;
     };
 };
+
+function zeros (n) {
+    var b = Buffer(n);
+    for (var i = 0; i < n; i++) b[i] = 0;
+    return b;
+}
+
+function pad (msg) {
+    var n = Math.ceil(msg.length / 256) * 256;
+    var b = zeros(n);
+    
+    if (Buffer.isBuffer(msg)) {
+        msg.copy(b, 0);
+    }
+    else {
+        b.write(msg, 0);
+    }
+    return b;
+}
+
+function hash (key, payload) {
+    var signer = crypto.createSign('RSA-SHA256');
+    signer.update(payload);
+    return signer.sign(key, 'base64');
+}
+
+function verify (key, msg, hash) {
+    return crypto.createVerify('RSA-SHA256')
+        .update(msg)
+        .verify(key, hash, 'base64')
+    ;
+}
+
+function frame (key, buf) {
+    var h = hash(key, buf);
+    
+console.dir(h); 
+    return buf;
+}
+
+function unframe (key, buf) {
+    return buf;
+}
