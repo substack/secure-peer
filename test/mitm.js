@@ -17,7 +17,7 @@ test('accept a connection', function (t) {
     var a = peer.a(function (stream) {
         stream.pipe(through(function (buf) {
             for (var i = 0; i < buf.length; i++) {
-                this.emit('data', buf.slice(i, i + 1));
+                this.emit('data', String(buf.slice(i, i + 1)).toUpperCase());
             }
         })).pipe(stream);
     });
