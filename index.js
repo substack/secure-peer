@@ -33,12 +33,13 @@ function securePeer (dh, keys, cb) {
     var firstLine = true;
     var sec = es.connect(es.split(), through(function (line) {
         if (firstLine) {
+            firstLine = false;
+            
             try {
                 var header = JSON.parse(line);
             } catch (e) { return sec.destroy() }
             
             sec.emit('header', header);
-            firstLine = false;
         }
         else if (decrypt) unframer(line)
         else buffers.push(line)
@@ -59,13 +60,11 @@ function securePeer (dh, keys, cb) {
         }
         
         function end () {
-            sec.emit('data', ecrypt.final());
-            sec.emit('end');
-            sec.emit('close');
+            //sec.emit('end');
+            //stream.emit('end');
         }
         
         sec.emit('connection', stream);
-        
         decrypt = crypto.createDecipher('aes-256-cbc', k);
         
         buffers.forEach(unframer);
@@ -120,15 +119,9 @@ function securePeer (dh, keys, cb) {
     return sec;
 };
 
-function zeros (n) {
-    var b = Buffer(n);
-    for (var i = 0; i < n; i++) b[i] = 0;
-    return b;
-}
-
 function pad (msg) {
     var n = Math.ceil(msg.length / 256) * 256;
-    var b = zeros(n);
+    var b = crypto.randomBytes(n);
     
     if (Buffer.isBuffer(msg)) {
         msg.copy(b, 0);

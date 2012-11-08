@@ -27,7 +27,7 @@ test('accept a secure connection', function (t) {
         stream.on('end', function () {
             t.equal(data, 'BEEP BOOP\n');
         });
-        stream.end('beep boop\n');
+        stream.write('beep boop\n');
     });
     
     a.on('identify', function (id) {
