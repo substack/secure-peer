@@ -76,7 +76,10 @@ You can generate keypairs with [rsa-json](http://github.com/substack/rsa-json).
 
 ## var sec = peer(cb)
 
-Create a new duplex stream `sec`
+Create a new duplex stream `sec`.
+
+`cb` is a shorthand to listen on the `'connection'` event just like
+`net.createServer()`.
 
 # events
 
