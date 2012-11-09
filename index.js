@@ -24,10 +24,11 @@ function securePeer (dh, keys, cb) {
     function unframer (buf) {
         var uf = frame.unpack(stream.id.key.public, buf);
         if (uf === 'end') {
-            if (stream) stream.emit('end');
-            sec.emit('end');
+            if (stream && !destroyed) stream.emit('end');
+            if (!destroyed) sec.emit('end');
             
-            if (stream) stream.emit('close');
+            if (stream && !stream.closed) stream.emit('close');
+            
             sec.emit('close');
             return;
         }
@@ -49,6 +50,7 @@ function securePeer (dh, keys, cb) {
     var end = (function () {
         var sentEnd = false;
         return function end () {
+            if (destroyed) return;
             if (sentEnd) return;
             sentEnd = true;
             sec.emit('data', '[]\n');
@@ -68,12 +70,16 @@ function securePeer (dh, keys, cb) {
         sec.emit('header', header);
     }, end));
     
+    var destroyed = false;
+    sec.destroy = function () { destroyed = true };
+    
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;
         secret = dh.computeSecret(pub, 'base64', 'base64');
         
         stream = through(write, end);
         stream.id = ack;
+        stream.on('close', function () { stream.closed = true });
         
         function write (buf) {
             var encrypt = crypto.createCipher('aes-256-cbc', secret);
@@ -91,9 +97,6 @@ function securePeer (dh, keys, cb) {
     sec.once('header', function (meta) {
         var payload = JSON.parse(meta.payload);
         
-        var v = verify(payload.key.public, meta.payload, meta.hash);
-        if (!v) return sec.reject();
-        
         var ack = createAck(sec.listeners('identify').length);
         ack.key = payload.key;
         ack.outgoing = outgoing;
@@ -106,6 +109,9 @@ function securePeer (dh, keys, cb) {
         ack.on('reject', function () {
             sec.emit('close');
         });
+        
+        var v = verify(payload.key.public, meta.payload, meta.hash);
+        if (!v) return ack.reject();
         
         sec.emit('identify', ack);
     });
