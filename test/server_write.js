@@ -11,7 +11,7 @@ var peer = {
 };
 var through = require('through');
 
-test('accept a connection', function (t) {
+test('same tick server write', function (t) {
     t.plan(3);
     
     var a = peer.a(function (stream) {

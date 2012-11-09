@@ -45,7 +45,6 @@ function securePeer (dh, keys, cb) {
         stream.emit('data', Buffer(s));
     }
     
-    var firstLine = true;
     var lines = [];
     
     var end = (function () {
@@ -58,11 +57,12 @@ function securePeer (dh, keys, cb) {
         }
     })();
     
+    var lineNum = 0;
     var sec = es.connect(es.split(), through(function (line) {
-        if (!firstLine && lines) return lines.push(line);
-        else if (!firstLine) return unframer(line);
+        lineNum ++;
         
-        firstLine = false;
+        if (lineNum > 1 && lines) return lines.push(line);
+        else if (lineNum > 1) return unframer(line);
         
         try {
             var header = JSON.parse(line);
@@ -128,7 +128,9 @@ function securePeer (dh, keys, cb) {
         var v = verify(payload.key.public, meta.payload, meta.hash);
         if (!v) return ack.reject();
         
-        sec.emit('identify', ack);
+        process.nextTick(function () {
+            sec.emit('identify', ack);
+        });
     });
     
     sec.on('pipe', function () {
