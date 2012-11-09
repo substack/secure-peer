@@ -19,10 +19,10 @@ module.exports = function (keys) {
 };
 
 function securePeer (dh, keys, cb) {
-    var stream, secret;
+    var stream, secret, token;
     
     function unframer (buf) {
-        var uf = frame.unpack(stream.id.key.public, buf);
+        var uf = frame.unpack(stream.id.key.public, token, buf);
         if (uf === 'end') {
             if (stream && !destroyed) stream.emit('end');
             if (!destroyed) sec.emit('end');
@@ -94,7 +94,7 @@ function securePeer (dh, keys, cb) {
         function write (buf) {
             var encrypt = crypto.createCipher('aes-256-cbc', secret);
             var s = encrypt.update(String(buf)) + encrypt.final();
-            sec.emit('data', frame.pack(keys.private, Buffer(s)));
+            sec.emit('data', frame.pack(keys.private, token, Buffer(s)));
         }
         
         sec.emit('connection', stream);
@@ -106,6 +106,10 @@ function securePeer (dh, keys, cb) {
     
     sec.once('header', function (meta) {
         var payload = JSON.parse(meta.payload);
+        token = outgoing.token > payload.token
+            ? outgoing.token + payload.token
+            : payload.token + outgoing.token
+        ;
         
         var ack = createAck(sec.listeners('identify').length);
         ack.key = payload.key;
@@ -130,21 +134,24 @@ function securePeer (dh, keys, cb) {
         process.nextTick(sendOutgoing);
     });
     
-    var outgoing;
+    var outgoing = {
+        token : crypto.randomBytes(64).toString('base64'),
+        key : {
+            type : 'rsa',
+            public : keys.public,
+        },
+        dh : {
+            group : dh.group,
+            public : dh.getPublicKey('base64')
+        }
+    };
+    
     function sendOutgoing () {
-        outgoing = JSON.stringify({
-            key : {
-                type : 'rsa',
-                public : keys.public,
-            },
-            dh : {
-                group : dh.group,
-                public : dh.getPublicKey('base64')
-            }
-        });
+        var outs = JSON.stringify(outgoing);
+        
         sec.emit('data', JSON.stringify({
-            hash : hash(keys.private, outgoing),
-            payload : outgoing
+            hash : hash(keys.private, outs),
+            payload : outs
         }) + '\n');
     }
     
