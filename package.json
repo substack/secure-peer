@@ -1,6 +1,6 @@
 {
     "name" : "secure-peer",
-    "version" : "0.1.1",
+    "version" : "0.1.2",
     "description" : "peer-to-peer encrypted streams using public key cryptography and signing",
     "main" : "index.js",
     "directories" : {
