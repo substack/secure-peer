@@ -13,7 +13,7 @@ var through = require('through');
 var split = require('event-stream').split;
 
 test('basic mitm attack', function (t) {
-    t.plan(3);
+    t.plan(4);
     
     var bufNum = 0;
     var attacker = through(function (buf) {
@@ -47,6 +47,14 @@ test('basic mitm attack', function (t) {
         stream.write('beep');
         stream.write(' ');
         stream.end('boop');
+    });
+    
+    b.on('end', function () {
+        t.fail('outer stream should have been destroyed');
+    });
+    
+    b.on('close', function () {
+        t.ok(true, 'outer stream closed');
     });
     
     a.on('identify', function (id) {
