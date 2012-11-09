@@ -1,0 +1,43 @@
+var test = require('tap').test;
+var keys = {
+    a : require('./keys/a.json'),
+    b : require('./keys/b.json'),
+};
+
+var secure = require('../');
+var peer = {
+    a : secure(keys.a),
+    b : secure(keys.b),
+};
+var through = require('through');
+
+test('accept a connection', function (t) {
+    t.plan(3);
+    
+    var a = peer.a(function (stream) {
+        var data = '';
+        stream.on('data', function (buf) { data += buf });
+        stream.on('end', function () {
+            t.equal(data, 'BEEP BOOP');
+        });
+        stream.end('beep boop');
+    });
+    
+    var b = peer.b(function (stream) {
+        stream.pipe(through(function (buf) {
+            this.emit('data', String(buf).toUpperCase());
+        })).pipe(stream);
+    });
+    
+    a.on('identify', function (id) {
+        t.equal(id.key.public, keys.b.public);
+        id.accept();
+    });
+    
+    b.on('identify', function (id) {
+        t.equal(id.key.public, keys.a.public);
+        id.accept();
+    });
+    
+    a.pipe(b).pipe(a);
+});
