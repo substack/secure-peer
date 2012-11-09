@@ -3,7 +3,7 @@ var through = require('through');
 var es = require('event-stream');
 
 var createAck = require('./lib/ack');
-var frame = require('./lib/frame');
+var framer = require('./lib/frame');
 var hash =require('./lib/hash');
 var verify =require('./lib/verify');
 
@@ -20,6 +20,7 @@ module.exports = function (keys) {
 
 function securePeer (dh, keys, cb) {
     var stream, secret, token;
+    var frame = framer();
     
     function unframer (buf) {
         var uf = frame.unpack(stream.id.key.public, token, buf);
