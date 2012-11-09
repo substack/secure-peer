@@ -13,16 +13,38 @@ var through = require('through');
 var es = require('event-stream');
 
 test('replay attack', function (t) {
-    t.plan(1);
+    t.plan(3);
+    
+    var messages = [];
     var eve = es.connect(es.split(), through(function (line) {
         // eavesdrop on the messages
-console.dir(line);
+        messages.push(line);
         this.emit('data', String(line) + '\n');
     }));
     
-    var a = peer.a(function (stream) {
+    var msgNum = 0;
+    var replay = es.connect(es.split(), through(function (line) {
+        var msg = messages.shift();
+        
+        if (++msgNum === 1) {
+            this.emit('data', String(line) + '\n');
+        }
+        else this.emit('data', String(msg) + '\n');
+    }));
+    
+    var a0 = peer.a(function (stream) {
         stream.pipe(through(function (buf) {
             this.emit('data', String(buf).toUpperCase());
+        })).pipe(stream);
+    });
+    
+    var a1 = peer.a(function (stream) {
+        var ix = 0;
+        stream.pipe(through(function (buf) {
+            var s = String(buf).split('').map(function (c) {
+                return (ix++ % 2) ? c.toLowerCase() : c.toUpperCase();
+            }).join('');
+            this.emit('data', s);
         })).pipe(stream);
     });
     
@@ -38,10 +60,16 @@ console.dir(line);
         stream.end('boop');
     });
     
+    b0.on('end', function () {
+        a1.pipe(replay).pipe(b1).pipe(a1);
+    });
+    
     var b1 = peer.b(function (stream) {
         var data = '';
         stream.on('data', function (buf) { data += buf });
         stream.on('end', function () {
+            console.log('/!\\ WARNING /!\\');
+            console.log('RECEIVED REPLAYED DATA: ' + data);
             t.fail('stream should have been destroyed for tampering');
         });
         
@@ -62,5 +90,5 @@ console.dir(line);
         t.ok(true, 'outer stream closed');
     });
     
-    a.pipe(eve).pipe(b0).pipe(a);
+    a0.pipe(eve).pipe(b0).pipe(a0);
 });

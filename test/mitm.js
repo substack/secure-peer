@@ -10,7 +10,6 @@ var peer = {
     b : secure(keys.b),
 };
 var through = require('through');
-var split = require('event-stream').split;
 
 test('basic mitm attack', function (t) {
     t.plan(4);
