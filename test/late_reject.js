@@ -11,28 +11,41 @@ var peer = {
 };
 var through = require('through');
 
-test('reject a connection', function (t) {
+test('reject a connection after accepting it', function (t) {
     t.plan(5);
     
     var a = peer.a(function (stream) {
-        t.fail('got the stream in A');
+        stream.write('beep');
+        
+        setTimeout(function () {
+            stream.end(' boop');
+        }, 300);
     });
     
     var b = peer.b(function (stream) {
-        stream.on('data', function (buf) {
-            t.fail('got data in B somehow');
-        });
+        var data = '';
+        stream.on('data', function (buf) { data += buf });
+        
         stream.on('end', function () {
             t.fail('b should have been destroyed');
         });
         
         stream.on('close', function () {
             t.ok(true, 'stream in b closed');
+            t.equal(data, 'beep');
         });
+    });
+    
+    a.on('end', function () {
+        t.fail('a should have been destroyed');
     });
     
     a.on('close', function () {
         t.ok(true, 'a closed');
+    });
+    
+    b.on('end', function () {
+        t.fail('b should have been destroyed');
     });
     
     b.on('close', function () {
@@ -41,8 +54,10 @@ test('reject a connection', function (t) {
     
     a.on('identify', function (id) {
         t.equal(id.key.public, keys.b.public);
+        id.accept();
+        
         setTimeout(function () {
-            id.reject();
+            //id.reject();
         }, 200);
     });
     
