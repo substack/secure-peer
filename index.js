@@ -29,7 +29,7 @@ function securePeer (dh, keys, cb) {
             
             if (stream && !stream.closed) stream.emit('close');
             
-            sec.emit('close');
+            if (!sec.closed) sec.emit('close');
             return;
         }
         if (!uf) {
@@ -71,7 +71,17 @@ function securePeer (dh, keys, cb) {
     }, end));
     
     var destroyed = false;
-    sec.destroy = function () { destroyed = true };
+    sec.destroy = function () {
+        if (!destroyed && !sec.closed) {
+            sec.emit('close');
+        }
+        if (!destroyed && stream && !stream.closed) {
+            stream.emit('close');
+        }
+        destroyed = true;
+    };
+    
+    sec.on('close', function () { sec.closed = true });
     
     sec.on('accept', function (ack) {
         var pub = ack.payload.dh.public;

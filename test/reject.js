@@ -22,6 +22,10 @@ test('accept a connection', function (t) {
         stream.on('data', function (buf) {
             t.fail('got data in B somehow');
         });
+        stream.on('end', function () {
+            t.fail('b should have been destroyed');
+        });
+        
         stream.on('close', function () {
             t.ok(true, 'stream in b closed');
         });
