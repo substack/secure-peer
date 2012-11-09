@@ -12,7 +12,7 @@ var peer = {
 var through = require('through');
 
 test('reject a connection after accepting it', function (t) {
-    t.plan(5);
+    t.plan(6);
     
     var a = peer.a(function (stream) {
         stream.write('beep');
@@ -57,7 +57,7 @@ test('reject a connection after accepting it', function (t) {
         id.accept();
         
         setTimeout(function () {
-            //id.reject();
+            id.reject();
         }, 200);
     });
     

@@ -122,7 +122,7 @@ function securePeer (dh, keys, cb) {
         });
         
         ack.on('reject', function () {
-            sec.emit('close');
+            if (!sec.closed) sec.emit('close');
         });
         
         var v = verify(payload.key.public, meta.payload, meta.hash);
