@@ -12,13 +12,13 @@ var peer = {
 var through = require('through');
 
 test('mitm end attack', function (t) {
-    t.plan(4);
+    t.plan(5);
     
     var bufNum = 0;
     var attacker = through(function (buf) {
         if (!Buffer.isBuffer(buf)) buf = Buffer(buf);
         
-        if (++bufNum === 6) this.emit('data', '[]\n');
+        if (++bufNum === 6) this.emit('data', '[""]\n');
         else this.emit('data', buf);
     });
     

@@ -54,7 +54,7 @@ function securePeer (dh, keys, cb) {
             if (destroyed) return;
             if (sentEnd) return;
             sentEnd = true;
-            sec.emit('data', '[]\n');
+            sec.emit('data', frame.pack(keys.private, token)); // end
         }
     })();
     
