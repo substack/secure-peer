@@ -5,22 +5,35 @@ var es = require('event-stream');
 var createAck = require('./lib/ack');
 var framer = require('./lib/frame');
 var hash =require('./lib/hash');
-var verify =require('./lib/verify');
+var verify = require('./lib/verify');
+var pickCipher = require('./lib/pick_cipher');
 
-module.exports = function (keys) {
+var defaultCiphers = ['ECDHE-RSA-AES128-SHA256','AES128-GCM-SHA256','RC4']
+    .filter(function (name) {
+        try { crypto.createCipher(name, 'abc') }
+        catch (e) { return false }
+        return true;
+    })
+;
+
+module.exports = function (keys, opts) {
+    if (!opts) opts = {};
+    var ciphers = opts.ciphers || defaultCiphers;
+
     var group = 'modp5';
     var dh = crypto.getDiffieHellman(group);
     dh.generateKeys();
     dh.group = group;
     
     return function (cb) {
-        return securePeer(dh, keys, cb);
+        return securePeer(dh, keys, ciphers, cb);
     };
 };
 
-function securePeer (dh, keys, cb) {
+function securePeer (dh, keys, ciphers, cb) {
     var stream, secret, token;
     var frame = framer();
+    var cipher;
     
     function unframer (buf) {
         var uf = frame.unpack(stream.id.key.public, token, buf);
@@ -40,7 +53,7 @@ function securePeer (dh, keys, cb) {
         }
         var msg = Buffer(uf[0], 'base64');
         
-        var decrypt = crypto.createDecipher('aes-256-cbc', secret);
+        var decrypt = crypto.createDecipher(cipher, secret);
         var s = decrypt.update(String(msg)) + decrypt.final();
         stream.emit('data', Buffer(s));
     }
@@ -93,7 +106,7 @@ function securePeer (dh, keys, cb) {
         stream.on('close', function () { stream.closed = true });
         
         function write (buf) {
-            var encrypt = crypto.createCipher('aes-256-cbc', secret);
+            var encrypt = crypto.createCipher(cipher, secret);
             var s = encrypt.update(String(buf)) + encrypt.final();
             sec.emit('data', frame.pack(keys.private, token, Buffer(s)));
         }
@@ -125,6 +138,15 @@ function securePeer (dh, keys, cb) {
             if (!sec.closed) sec.emit('close');
         });
         
+        cipher = outgoing.token > payload.token
+            ? pickCipher(ciphers, payload.ciphers)
+            : pickCipher(payload.ciphers, ciphers)
+        ;
+        if (!cipher) {
+            sec.emit('clientError', new Error('no common ciphers'))
+            return ack.reject();
+        }
+        
         var v = verify(payload.key.public, meta.payload, meta.hash);
         if (!v) return ack.reject();
         
@@ -146,7 +168,8 @@ function securePeer (dh, keys, cb) {
         dh : {
             group : dh.group,
             public : dh.getPublicKey('base64')
-        }
+        },
+        ciphers : ciphers
     };
     
     function sendOutgoing () {
