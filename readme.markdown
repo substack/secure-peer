@@ -65,7 +65,7 @@ Maintaining a known hosts file is outside the scope of this module.
 var secure = require('secure-peer')
 ```
 
-## var peer = secure(keys)
+## var peer = secure(keys, opts={})
 
 Return a function to create streams given the `keys` supplied.
 
@@ -73,6 +73,11 @@ Return a function to create streams given the `keys` supplied.
 public PEM string.
 
 You can generate keypairs with [rsa-json](http://github.com/substack/rsa-json).
+
+You can set a preference ordering array of ciphers to use with `opts.ciphers`.
+Both sides will use a deterministic ordinal voting algorithm to determine which
+cipher to use.
+See `openssl list-cipher-algorithms` for the whole list.
 
 ## var sec = peer(cb)
 
