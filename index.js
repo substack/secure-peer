@@ -8,13 +8,7 @@ var hash =require('./lib/hash');
 var verify = require('./lib/verify');
 var pickCipher = require('./lib/pick_cipher');
 
-var defaultCiphers = ['ECDHE-RSA-AES128-SHA256','AES128-GCM-SHA256','RC4']
-    .filter(function (name) {
-        try { crypto.createCipher(name, 'abc') }
-        catch (e) { return false }
-        return true;
-    })
-;
+var defaultCiphers = ['RC4'];
 
 module.exports = function (keys, opts) {
     if (!opts) opts = {};
@@ -129,6 +123,7 @@ function securePeer (dh, keys, ciphers, cb) {
         ack.key = payload.key;
         ack.outgoing = outgoing;
         ack.payload = payload;
+        ack.ciphers = payload.ciphers;
         
         ack.on('accept', function () {
             sec.emit('accept', ack);
@@ -138,7 +133,7 @@ function securePeer (dh, keys, ciphers, cb) {
             if (!sec.closed) sec.emit('close');
         });
         
-        cipher = outgoing.token > payload.token
+        cipher = ack.cipher = outgoing.token > payload.token
             ? pickCipher(ciphers, payload.ciphers)
             : pickCipher(payload.ciphers, ciphers)
         ;
