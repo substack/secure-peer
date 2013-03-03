@@ -20,11 +20,13 @@ module.exports = function (keys, opts) {
     dh.group = group;
     
     return function (cb) {
-        return securePeer(dh, keys, ciphers, cb);
+        var sec = securePeer(dh, keys, ciphers);
+        if (typeof cb === 'function') sec.on('connection', cb);
+        return sec;
     };
 };
 
-function securePeer (dh, keys, ciphers, cb) {
+function securePeer (dh, keys, ciphers) {
     var stream, secret, token;
     var frame = framer();
     var cipher;
@@ -176,6 +178,5 @@ function securePeer (dh, keys, ciphers, cb) {
         }) + '\n');
     }
     
-    if (typeof cb === 'function') sec.on('connection', cb);
     return sec;
 };
