@@ -7,6 +7,7 @@ var framer = require('./lib/frame');
 var hash =require('./lib/hash');
 var verify = require('./lib/verify');
 var pickCipher = require('./lib/pick_cipher');
+var toBuffer = require('./lib/to_buffer');
 
 var defaultCiphers = ['RC4'];
 
@@ -48,10 +49,9 @@ function securePeer (dh, keys, ciphers, cb) {
         var msg = Buffer(uf[0], 'base64');
         
         var decrypt = crypto.createDecipher(cipher, secret);
-        var s = parseInt(process.version.split('.')[1], 10) <= 8
-            ? Buffer(decrypt.update(String(msg)) + decrypt.final())
-            : Buffer.concat([decrypt.update(msg), decrypt.final()]);
-        stream.emit('data', s);
+        var body = toBuffer(decrypt.update(msg));
+        var fin = toBuffer(decrypt.final());
+        stream.emit('data', Buffer.concat([body, fin]));
     }
     
     var lines = [];
@@ -103,9 +103,9 @@ function securePeer (dh, keys, ciphers, cb) {
         
         function write (buf) {
             var encrypt = crypto.createCipher(cipher, secret);
-            var s = parseInt(process.version.split('.')[1], 10) <= 8
-                ? Buffer(encrypt.update(String(buf)) + encrypt.final())
-                : Buffer.concat([encrypt.update(buf), encrypt.final()]);
+            var body = toBuffer(encrypt.update(buf));
+            var fin = toBuffer(encrypt.final());
+            var s = Buffer.concat([body, fin]);
             sec.emit('data', frame.pack(keys.private, token, s));
         }
         
