@@ -48,7 +48,9 @@ function securePeer (dh, keys, ciphers, cb) {
         var msg = Buffer(uf[0], 'base64');
         
         var decrypt = crypto.createDecipher(cipher, secret);
-        var s = Buffer.concat([decrypt.update(msg), decrypt.final()]);
+        var s = parseInt(process.version.split('.')[1], 10) <= 8
+            ? Buffer(decrypt.update(String(msg)) + decrypt.final())
+            : Buffer.concat([decrypt.update(msg), decrypt.final()]);
         stream.emit('data', s);
     }
     
@@ -101,7 +103,9 @@ function securePeer (dh, keys, ciphers, cb) {
         
         function write (buf) {
             var encrypt = crypto.createCipher(cipher, secret);
-            var s = Buffer.concat([encrypt.update(buf), encrypt.final()]);
+            var s = parseInt(process.version.split('.')[1], 10) <= 8
+                ? Buffer(encrypt.update(String(buf)) + encrypt.final())
+                : Buffer.concat([encrypt.update(buf), encrypt.final()]);
             sec.emit('data', frame.pack(keys.private, token, s));
         }
         
