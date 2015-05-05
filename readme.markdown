@@ -59,6 +59,45 @@ on like how `~/.ssh/known_hosts` works.
 
 Maintaining a known hosts file is outside the scope of this module.
 
+# protocol
+
+`secure-peer` implements a very simple protocol that gives gives confidential content, although the identity of the peers (pubkeys) are leaked to a passive evesdropper.
+
+The protocol begins by sending a handshake
+[code](https://github.com/substack/secure-peer/blob/master/index.js#L163-L174)
+
+``` js
+    var outgoing = {
+        token : crypto.randomBytes(64).toString('base64'),
+        key : {
+            type : 'rsa',
+            public : keys.public,
+        },
+        dh : {
+            group : dh.group,
+            public : dh.getPublicKey('base64')
+        },
+        ciphers : ciphers
+    };
+```
+The header contains a token (used to prevent replay attacks), your public key, a new diffie-helman public key,
+and the list of supported ciphers.
+
+This is then signed with the corresponding private key, and sent as a line of json. [code](https://github.com/substack/secure-peer/blob/master/index.js#L180) All binary values are base64 encoded. 
+
+Upon receiving the remote peer's header, the signature is verified (against their supplied public key), and the `identity` event is emitted. A secure-peer client (i.e. the peer that initiated the connection) should now check that they have achived a connection to the peer they expected to connect to. It would be expected for a server to receive connections from potentially unknown peers.
+
+If all the `identity` listeners call `ack.accept()` then the connection is accepted,
+and the secret is derived from the diffie-helman keys.
+
+The cipher is selected by a ordinal voting algorithm. Each peer sends an preference ordered list of supported ciphers. The cipher is picked by selecting the peer with the greatest token, and then using their most preferred token which is also supported by the other peer.
+
+> Security Hole (minor): Since a peer can choose their token "randomly" they can choose particularily high tokens that are highly likely to allow them to pick the cipher. This could be used for a cipher downgrade attack... cipher selection is generally problematic... but this weakness is probably best remedied by some out of band way to make sure the network upgrade cycle is short. It might be better to elect the cipher picking peer by a fair method (where the winner is provably fair, such picking the peer who's token is closest to `hash(p1.token + p2.token)`. Another option might be to allow the server (i.e. person who picked up the phone) to select the cipher since they are in a slightly more vulnerable position (and more likely to be the victum in an attack).
+
+Now, stream packets may be sent to the remote peer. Each packet is framed along with an incrementing sequence number, and the token sent by the remote peer, this prevents replay attacks, because the peer will not accept packets with the wrong token, and prevents reordering attacks, since the peer will not accept replayed packets if the sequence numbers are not in order.
+
+> Security Hole: Although the session cannot be replayed, the initial handshake *can* be replayed. This will cause the server to believe it has established a connection, if the attacker does not send any content then the attack will not be discovered. This could probably be used for a denial of service attack, or maybe to cause the server to leak information via timing, in cases where they implement a protocol that streams realtime data without waiting for the client to send anything.
+
 # methods
 
 ``` js
