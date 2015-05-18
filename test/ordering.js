@@ -1,4 +1,4 @@
-var test = require('tap').test;
+var test = require('tape');
 var keys = {
     a : require('./keys/a.json'),
     b : require('./keys/b.json'),

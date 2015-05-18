@@ -13,10 +13,10 @@
         "event-stream" : "~3.0.7"
     },
     "devDependencies" : {
-        "tap" : "~0.3.0"
+        "tape" : "~1.0.4"
     },
     "scripts" : {
-        "test" : "tap test/*.js"
+        "test" : "tape test/*.js"
     },
     "repository" : {
         "type" : "git",
